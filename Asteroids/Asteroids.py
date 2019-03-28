@@ -3,8 +3,8 @@ import math
 import random
 
 # globals for user interface
-WIDTH = 800
-HEIGHT = 600
+WIDTH = 750
+HEIGHT = 650
 score = 0
 MAX_LIVES = 5
 lives = 0
