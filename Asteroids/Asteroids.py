@@ -2,6 +2,10 @@ import simplegui
 import math
 import random
 
+#note to play this game on the browser, copy the code go to http://www.codeskulptor.org/ paste and play
+
+
+
 # globals for user interface
 WIDTH = 750
 HEIGHT = 650
@@ -259,9 +263,7 @@ class Sprite:
             False
 
 def group_collide(group, sprite):
-    """
-    Check for collisions between sprite and elements of the group
-    """
+   
     global explosion_group
     
     collisions = False
@@ -275,9 +277,6 @@ def group_collide(group, sprite):
     return collisions
 
 def group_group_collide(rocks_group, missils_group):
-    """
-    Check for collisions between two groups - rocks_group and missils_group
-    """ 
     numberHits = 0
     for rock in set(rocks_group):
         if(group_collide(missils_group, rock)):
@@ -287,9 +286,6 @@ def group_group_collide(rocks_group, missils_group):
     return numberHits
             
 def keyup_handler(key):
-    """
-    Event handler for key up
-    """
     if(started):
         if key == simplegui.KEY_MAP['up']:
             my_ship.thrust(False)
@@ -313,19 +309,11 @@ def keydown_handler(key):
             my_ship.shoot()
 
 def mouse_handler(position):
-    """
-    Mouse handler that dismisses the splash image before the game starts.
-    """
     if(not started):
         new_game()
     
 def draw(canvas):
-    """
-    Event handler for drawing on the canvas
-    """
     global time, lives, score, started, explosion_group
-    
-    # animiate background
     time += 1
     wtime = (time / 4) % WIDTH
     center = debris_info.get_center()
@@ -357,15 +345,12 @@ def draw(canvas):
         
         score += group_group_collide(rock_group, missile_group)
         
-        # draw ship and sprites
         my_ship.draw(canvas)
         my_ship.update()
     
         process_sprite_group(rock_group, canvas)
         process_sprite_group(missile_group, canvas)
         process_sprite_group(explosion_group, canvas)
-    
-    #update game values
     canvas.draw_text('Lives:', (50, 30), 25, 'White')
     canvas.draw_text(str(lives), (50, 60), 25, 'Yellow')
     canvas.draw_text('Score:', (WIDTH - 100, 30), 25, 'White')
@@ -373,17 +358,12 @@ def draw(canvas):
 
 
 def process_sprite_group(group, canvas):
-    """
-    This function should take a set and a canvas and call the update and 
-    draw methods for each sprite in the group.  
-    """
-        
+ 
     for s in set(group):
         s.draw(canvas)
         if(s.update()):
             group.remove(s)
     
-# timer handler that spawns a rock    
 def rock_spawner():
     """
     Rock generator
@@ -411,10 +391,6 @@ def rock_spawner():
             rock_group.add(a_rock)
 
 def recreate_spaceship(ship = None):
-    """
-    Method in charge of recreating the spaceship at the beggining of the game or when the 
-    spaceship crashes with an object.
-    """
     global my_ship
     
     if(ship):
@@ -423,9 +399,6 @@ def recreate_spaceship(ship = None):
         my_ship = Ship([WIDTH / 2, HEIGHT / 2], [0, 0], 0, ship_image, ship_info)
             
 def new_game():
-    """
-    Starts a new game resetting all gaming values
-    """
     global started, lives, score, rock_group, missile_group, my_ship, explosion_group
     
     started = True
