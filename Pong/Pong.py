@@ -1,7 +1,8 @@
 import simplegui
 import random
 
-# initialize globals - pos and vel encode vertical info for paddles
+#note: To play this game on the browser, copy the code go to http://www.codeskulptor.org/ paste and play
+
 WIDTH = 600
 HEIGHT = 400       
 BALL_RADIUS = 20
