@@ -2,7 +2,7 @@ import simplegui
 import math
 import random
 
-#note to play this game on the browser, copy the code go to http://www.codeskulptor.org/ paste and play
+#note: To play this game on the browser, copy the code go to http://www.codeskulptor.org/ paste and play
 
 
 
