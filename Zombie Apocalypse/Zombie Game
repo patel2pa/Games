@@ -1,0 +1,613 @@
+
+import simplegui
+import random
+
+EMPTY = 0
+FULL = 1
+HAS_ZOMBIE = 2
+HAS_HUMAN = 4
+FOUR_WAY = 0
+EIGHT_WAY = 1
+OBSTACLE = 5
+HUMAN = 6
+ZOMBIE = 7
+CELL_COLORS = {EMPTY: "White",
+               FULL: "Black",
+               HAS_ZOMBIE: "Red",
+               HAS_HUMAN: "Green",
+               HAS_ZOMBIE|HAS_HUMAN: "Purple"}
+
+NAME_MAP = {OBSTACLE: "obstacle",
+            HUMAN: "human",
+            ZOMBIE: "zombie"}
+
+# GUI constants
+CELL_SIZE = 10
+LABEL_STRING = "Mouse click: Add "
+
+
+class ApocalypseGUI:
+    """
+    Container for interactive content
+    """
+
+    def __init__(self, simulation):
+        """
+        Create frame and timers, register event handlers
+        """
+        self.time = 0
+        self._simulation = simulation
+        self._grid_height = self._simulation.get_grid_height()
+        self._grid_width = self._simulation.get_grid_width()
+        self._frame = simplegui.create_frame("Zombie Apocalypse simulation",
+                                             self._grid_width * CELL_SIZE,
+                                             self._grid_height * CELL_SIZE)
+        self._timer = simplegui.create_timer(400, self.game_timer)
+        self._frame.set_canvas_background("White")
+        self._item_type = OBSTACLE
+
+        label = LABEL_STRING + NAME_MAP[self._item_type]
+        self._item_label = self._frame.add_button(label,
+                                                  self.toggle_item, 200)
+        self._frame.add_button("Clear all", self.clear, 200)
+        self._frame.add_label("")
+        self._frame.add_button("Humans flee", self.flee, 200)
+        self._frame.add_button("Zombies stalk", self.stalk, 200)
+        self._frame.add_label("")
+        self._frame.add_button("Dark City", self.dark_city, 200)
+        self._frame.add_label("")
+        self._frame.add_button("Start Game", self.game_timer, 200)
+        self._frame.set_mouseclick_handler(self.add_item)
+        self._frame.set_draw_handler(self.draw)
+
+
+    def start(self):
+        """
+        Start frame
+        """
+        self._frame.start()
+
+
+    def clear(self):
+        """
+        Event handler for button that clears everything
+        """
+        self._simulation.clear()
+        self._timer.stop()
+        self.time = 0
+
+
+    def flee(self):
+        """
+        Event handler for button that causes humans to flee zombies by one cell
+        Diagonal movement allowed
+        """
+        zombie_distance = self._simulation.compute_distance_field(ZOMBIE)
+        self._simulation.move_humans(zombie_distance)
+
+
+    def stalk(self):
+        """
+        Event handler for button that causes zombies to stack humans by one cell
+        Diagonal movement not allowed
+        """
+        human_distance = self._simulation.compute_distance_field(HUMAN)
+        self._simulation.move_zombies(human_distance)
+        
+    def start_game(self, time):
+        """
+        Event handler for button that starts automated game 
+        (instead of clicking Zombies stalk and Humans flee buttons)
+        """
+        if time % 2 == 0:
+            self.stalk()
+        else:
+            self.flee()
+            
+    def game_timer(self):
+        self._timer.start()
+        self.start_game(self.time)
+        self.time += 1
+
+    def toggle_item(self):
+        """
+        Event handler to toggle between new obstacles, humans and zombies
+        """
+        if self._item_type == OBSTACLE:
+            self._item_type = ZOMBIE
+            self._item_label.set_text(LABEL_STRING + NAME_MAP[ZOMBIE])
+        elif self._item_type == ZOMBIE:
+            self._item_type = HUMAN
+            self._item_label.set_text(LABEL_STRING + NAME_MAP[HUMAN])
+        elif self._item_type == HUMAN:
+            self._item_type = OBSTACLE
+            self._item_label.set_text(LABEL_STRING + NAME_MAP[OBSTACLE])
+
+
+    def add_item(self, click_position):
+        """
+        Event handler to add new obstacles, humans and zombies
+        """
+        row, col = self._simulation.get_index(click_position, CELL_SIZE)
+        if self._item_type == OBSTACLE:
+            if not self.is_occupied(row, col):
+                self._simulation.set_full(row, col)
+        elif self._item_type == ZOMBIE:
+            if self._simulation.is_empty(row, col):
+                self._simulation.add_zombie(row, col)
+        elif self._item_type == HUMAN:
+            if self._simulation.is_empty(row, col):
+                self._simulation.add_human(row, col)
+
+
+    def is_occupied(self, row, col):
+        """
+        Determines whether the given cell contains any humans or zombies
+        """
+        cell = (row, col)
+        human = cell in self._simulation.humans()
+        zombie = cell in self._simulation.zombies()
+        return human or zombie
+    
+    
+    def dark_city(self):
+        
+        self._item_type = OBSTACLE
+        for brick in range(4):
+            if brick != 2:
+                self.add_item((brick*CELL_SIZE, 5*CELL_SIZE))
+                self.add_item((5*CELL_SIZE, brick*CELL_SIZE))
+            
+        
+        for dummy_i in range(10):
+            random_pos = (random.randrange(self._grid_width * CELL_SIZE), 
+                          random.randrange(self._grid_height * CELL_SIZE))
+            
+            self.add_item(random_pos)
+            
+            if self._item_type == OBSTACLE:
+                random_pos = (random.randrange(self._grid_width * CELL_SIZE), 
+                          random.randrange(self._grid_height * CELL_SIZE))
+                self.add_item(random_pos)
+                
+            self.toggle_item()
+
+
+    def draw_cell(self, canvas, row, col, color="Cyan"):
+        """
+        Draw a cell in the grid
+        """
+        upper_left = [col * CELL_SIZE, row * CELL_SIZE]
+        upper_right = [(col + 1) * CELL_SIZE, row * CELL_SIZE]
+        lower_right = [(col + 1) * CELL_SIZE, (row + 1) * CELL_SIZE]
+        lower_left = [col * CELL_SIZE, (row + 1) * CELL_SIZE]
+        canvas.draw_polygon([upper_left, upper_right,
+                             lower_right, lower_left],
+                            1, "Black", color)
+
+    def draw_grid(self, canvas, grid):
+        """
+        Draw entire grid
+        """
+        for col in range(self._grid_width):
+            for row in range(self._grid_height):
+                status = grid[row][col]
+                if status in CELL_COLORS:
+                    color = CELL_COLORS[status]
+                    if color != "White":
+                        self.draw_cell(canvas, row, col, color)
+                else:
+                    if status == (FULL | HAS_HUMAN):
+                        raise ValueError, "human moved onto an obstacle"
+                    elif status == (FULL | HAS_ZOMBIE):
+                        raise ValueError, "zombie moved onto an obstacle"
+                    elif status == (FULL | HAS_HUMAN | HAS_ZOMBIE):
+                        raise ValueError, "human and zombie moved onto an obstacle"
+                    else:
+                        raise ValueError, "invalid grid status: " + str(status)
+
+    def draw(self, canvas):
+        """
+        Handler for drawing obstacle grid, human queue and zombie queue
+        """
+        grid = [[FULL] * self._grid_width for
+                dummy_row in range(self._grid_height)]
+        for row in range(self._grid_height):
+            for col in range(self._grid_width):
+                if self._simulation.is_empty(row, col):
+                    grid[row][col] = EMPTY
+        for row, col in self._simulation.humans():
+            grid[row][col] |= HAS_HUMAN
+        for row, col in self._simulation.zombies():
+            grid[row][col] |= HAS_ZOMBIE
+        self.draw_grid(canvas, grid)
+
+
+# Start interactive simulation
+def run_gui(sim):
+    """
+    Encapsulate frame
+    """
+    gui = ApocalypseGUI(sim)
+    gui.start()
+    
+    
+"""
+Grid class
+"""
+
+EMPTY = 0
+FULL = 1
+
+class Grid:
+    """
+    Implementation of 2D grid of cells
+    Includes boundary handling
+    """
+    
+    def __init__(self, grid_height, grid_width):
+        """
+        Initializes grid to be empty, take height and width of grid as parameters
+        Indexed by rows (left to right), then by columns (top to bottom)
+        """
+        self._grid_height = grid_height
+        self._grid_width = grid_width
+        self._cells = [[EMPTY for dummy_col in range(self._grid_width)] 
+                       for dummy_row in range(self._grid_height)]
+                
+    def __str__(self):
+        """
+        Return multi-line string represenation for grid
+        """
+        ans = ""
+        for row in range(self._grid_height):
+            ans += str(self._cells[row])
+            ans += "\n"
+        return ans
+    
+    def get_grid_height(self):
+        """
+        Return the height of the grid for use in the GUI
+        """
+        return self._grid_height
+
+    def get_grid_width(self):
+        """
+        Return the width of the grid for use in the GUI
+        """
+        return self._grid_width
+
+
+    def clear(self):
+        """
+        Clears grid to be empty
+        """
+        self._cells = [[EMPTY for dummy_col in range(self._grid_width)]
+                       for dummy_row in range(self._grid_height)]
+                
+    def set_empty(self, row, col):
+        """
+        Set cell with index (row, col) to be empty
+        """
+        self._cells[row][col] = EMPTY
+    
+    def set_full(self, row, col):
+        """
+        Set cell with index (row, col) to be full
+        """
+        self._cells[row][col] = FULL
+    
+    def is_empty(self, row, col):
+        """
+        Checks whether cell with index (row, col) is empty
+        """
+        return self._cells[row][col] == EMPTY
+ 
+    def four_neighbors(self, row, col):
+        """
+        Returns horiz/vert neighbors of cell (row, col)
+        """
+        ans = []
+        if row > 0:
+            ans.append((row - 1, col))
+        if row < self._grid_height - 1:
+            ans.append((row + 1, col))
+        if col > 0:
+            ans.append((row, col - 1))
+        if col < self._grid_width - 1:
+            ans.append((row, col + 1))
+        return ans
+
+    def eight_neighbors(self, row, col):
+        """
+        Returns horiz/vert neighbors of cell (row, col) as well as
+        diagonal neighbors
+        """
+        ans = []
+        if row > 0:
+            ans.append((row - 1, col))
+        if row < self._grid_height - 1:
+            ans.append((row + 1, col))
+        if col > 0:
+            ans.append((row, col - 1))
+        if col < self._grid_width - 1:
+            ans.append((row, col + 1))
+        if (row > 0) and (col > 0):
+            ans.append((row - 1, col - 1))
+        if (row > 0) and (col < self._grid_width - 1):
+            ans.append((row - 1, col + 1))
+        if (row < self._grid_height - 1) and (col > 0):
+            ans.append((row + 1, col - 1))
+        if (row < self._grid_height - 1) and (col < self._grid_width - 1):
+            ans.append((row + 1, col + 1))
+        return ans
+    
+    def get_index(self, point, cell_size):
+        """
+        Takes point in screen coordinates and returns index of
+        containing cell
+        """
+        return (point[1] / cell_size, point[0] / cell_size) 
+
+"""
+Queue class
+"""
+
+class Queue:
+    """
+    A simple implementation of a FIFO queue.
+    """
+
+    def __init__(self):
+        """ 
+        Initialize the queue.
+        """
+        self._items = []
+
+    def __len__(self):
+        """
+        Return the number of items in the queue.
+        """
+        return len(self._items)
+    
+    def __iter__(self):
+        """
+        Create an iterator for the queue.
+        """
+        for item in self._items:
+            yield item
+
+    def __str__(self):
+        """
+        Return a string representation of the queue.
+        """
+        return str(self._items)
+
+    def enqueue(self, item):
+        """
+        Add item to the queue.
+        """        
+        self._items.append(item)
+
+    def dequeue(self):
+        """
+        Remove and return the least recently inserted item.
+        """
+        return self._items.pop(0)
+
+    def clear(self):
+        """
+        Remove all items from the queue.
+        """
+        self._items = []
+
+        
+"""
+Apocalypse
+"""
+
+# global constants
+EMPTY = 0 
+FULL = 1
+FOUR_WAY = 0
+EIGHT_WAY = 1
+OBSTACLE = 5
+HUMAN = 6
+ZOMBIE = 7
+
+class Apocalypse(Grid):
+    """
+    Class for simulating zombie pursuit of human on grid with
+    obstacles
+    """
+
+    def __init__(self, grid_height, grid_width, obstacle_list = None, 
+                 zombie_list = None, human_list = None):
+        """
+        Create a simulation of given size with given obstacles,
+        humans, and zombies
+        """
+        Grid.__init__(self, grid_height, grid_width)
+        if obstacle_list != None:
+            for cell in obstacle_list:
+                self.set_full(cell[0], cell[1])
+        if zombie_list != None:
+            self._zombie_list = list(zombie_list)
+        else:
+            self._zombie_list = []
+        if human_list != None:
+            self._human_list = list(human_list)  
+        else:
+            self._human_list = []
+        
+    def clear(self):
+        """
+        Set cells in obstacle grid to be empty
+        Reset zombie and human lists to be empty
+        """
+        Grid.clear(self)
+        self._zombie_list = []
+        self._human_list = []
+        
+    def add_zombie(self, row, col):
+        """
+        Add zombie to the zombie list
+        """
+        self._zombie_list.append((row, col))
+                
+    def num_zombies(self):
+        """
+        Return number of zombies
+        """
+        return len(self._zombie_list)  
+          
+    def zombies(self):
+        """
+        Generator that yields the zombies in the order they were
+        added.
+        """
+        for zombie in self._zombie_list:
+            yield zombie
+            
+    def remove_zombie(self, row, col):
+        """
+        Remove zombie from the zombie list
+        """
+        self._zombie_list.remove((row, col))        
+
+    def add_human(self, row, col):
+        """
+        Add human to the human list
+        """
+        self._human_list.append((row, col))
+        
+    def num_humans(self):
+        """
+        Return number of humans
+        """
+        return len(self._human_list)
+    
+    def humans(self):
+        """
+        Generator that yields the humans in the order they were added.
+        """
+        for human in self._human_list:
+            yield human
+            
+    def remove_human(self, row, col):
+        """
+        Remove human from the human list
+        """
+        self._human_list.remove((row, col))
+        
+    def compute_distance_field(self, entity_type):
+        """
+        Function computes and returns a 2D distance field
+        Distance at member of entity_list is zero
+        Shortest paths avoid obstacles and use four-way distances
+        """
+        visited = Grid(self.get_grid_height(), self.get_grid_width())
+        
+        distance_field = [[(self._grid_height * self._grid_width) for dummy_col in range(self._grid_width)] 
+                    for dummy_row in range(self._grid_height)]
+
+        boundary = Queue()
+        
+        entities_types = {HUMAN : self._human_list, ZOMBIE : self._zombie_list}
+
+        for entity in entities_types[entity_type]:
+            boundary.enqueue(entity)
+            visited.set_full(entity[0], entity[1])
+            distance_field[entity[0]][entity[1]] = 0
+
+        while boundary:
+            for entity in list(boundary):  
+                for neighbor_cell in self.four_neighbors(entity[0], entity[1]):
+                    if visited.is_empty(neighbor_cell[0], neighbor_cell[1]) and \
+                    self.is_empty(neighbor_cell[0], neighbor_cell[1]):
+                        visited.set_full(neighbor_cell[0], neighbor_cell[1])
+                        distance_field[neighbor_cell[0]][neighbor_cell[1]] = (distance_field[entity[0]][entity[1]] +1)
+                        boundary.enqueue(neighbor_cell)
+                boundary.dequeue()
+                
+        return distance_field
+
+                
+    def move_humans(self, zombie_distance_field):
+        """
+        Function that moves humans away from zombies, diagonal moves
+        are allowed
+        """
+        for dead_human in list(self._zombie_list):
+            if dead_human in self._human_list:
+                self.remove_human(dead_human[0], dead_human[1])
+                self.add_zombie(dead_human[0], dead_human[1])
+                
+        new_humans_positions = []
+        humans_positions = Grid(self.get_grid_height(), self.get_grid_width())
+        for human_pos in list(self.humans()):
+            humans_positions.set_full(human_pos[0], human_pos[1])
+
+        for human_pos in list(self.humans()):
+            distance_list = [zombie_distance_field[neighbor_cell[0]][neighbor_cell[1]] 
+                               for neighbor_cell in self.eight_neighbors(human_pos[0], human_pos[1])
+                               if self.is_empty(neighbor_cell[0], neighbor_cell[1]) and \
+                             humans_positions.is_empty(neighbor_cell[0], neighbor_cell[1])]
+            
+            if distance_list and max(distance_list) > zombie_distance_field[human_pos[0]][human_pos[1]]:
+                new_move = []
+                for neighbor_cell in self.eight_neighbors(human_pos[0], human_pos[1]):
+                    if zombie_distance_field[neighbor_cell[0]][neighbor_cell[1]] == max(distance_list) and \
+                    humans_positions.is_empty(neighbor_cell[0], neighbor_cell[1]):
+                        new_move.append(neighbor_cell)
+                move = random.choice(new_move)
+                new_humans_positions.append(move)
+                humans_positions.set_full(move[0], move[1])
+                humans_positions.set_empty(human_pos[0], human_pos[1])
+            else:
+                new_humans_positions.append(human_pos)
+                
+        self._human_list = new_humans_positions
+        
+        
+    def move_zombies(self, human_distance_field):
+        """
+        Function that moves zombies towards humans, no diagonal moves
+        are allowed
+        """        
+        new_zombies_positions = []
+        zombie_positions = Grid(self.get_grid_height(), self.get_grid_width())
+        for zombie_pos in list(self.zombies()):
+            zombie_positions.set_full(zombie_pos[0], zombie_pos[1])
+
+        for zombie_pos in list(self.zombies()):
+            distance_list = [(neighbor_cell[0], neighbor_cell[1])
+                               for neighbor_cell in self.four_neighbors(zombie_pos[0], zombie_pos[1])
+                               if self.is_empty(neighbor_cell[0], neighbor_cell[1]) and \
+                            zombie_positions.is_empty(neighbor_cell[0], neighbor_cell[1])]
+            
+            if distance_list:
+                new_move = []
+                for next_move in distance_list:
+                    if new_move:
+                        if human_distance_field[next_move[0]][next_move[1]] < \
+                        human_distance_field[new_move[-1][0]][new_move[-1][1]]:
+                            new_move = []
+                            new_move.append(next_move)
+                        elif human_distance_field[next_move[0]][next_move[1]] == \
+                        human_distance_field[new_move[-1][0]][new_move[-1][1]]:
+                            new_move.append(next_move)
+                    else:
+                        new_move.append(next_move)
+                move = random.choice(new_move)
+                new_zombies_positions.append(move)
+                zombie_positions.set_full(move[0], move[1])
+                zombie_positions.set_empty(zombie_pos[0], zombie_pos[1])
+            else:
+                new_zombies_positions.append(zombie_pos)
+                
+        self._zombie_list = new_zombies_positions
+        
+            
+# Start up gui for simulation
+run_gui(Apocalypse(30, 40))
